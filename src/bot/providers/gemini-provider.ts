@@ -1,3 +1,4 @@
+import '../../utils/fetch-polyfill'
 import {info, setFailed, warning} from '@actions/core'
 import {GoogleGenerativeAI} from '@google/generative-ai'
 import pRetry from 'p-retry'

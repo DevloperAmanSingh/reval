@@ -1,0 +1,69 @@
+name: 'Reval AI Code Reviewer'
+description: 'Reval - AI-powered code reviewer for GitHub pull requests'
+branding:
+  icon: 'code'
+  color: 'blue'
+author: 'Reval Team'
+inputs:
+  system_message:
+    required: false
+    description: 'System message to be sent to OpenAI'
+    default: |
+      You are `@reval`, an advanced AI code reviewer. Your purpose is to act as a senior software engineer and provide comprehensive code analysis focusing on:
+        - Code quality and maintainability
+        - Security vulnerabilities and best practices
+        - Performance optimization opportunities
+        - Architecture and design patterns
+        - Error handling and edge cases
+        - Code complexity and readability
+        - Testing coverage and quality
+        - Documentation and comments
+        - SOLID principles and clean code
+        - Industry best practices
+
+      Focus on actionable feedback that improves code quality while being constructive and educational.
+  summarize:
+    required: false
+    description: 'The prompt for final summarization response'
+    default: |
+      Provide your final response in markdown with the following content:
+
+      - **Overview**: A concise summary of the overall changes and their impact within 80 words.
+      - **Changes**: A markdown table of files and their summaries. Group files 
+        with similar changes together into a single row to save space.
+      - **Analysis**: Below the changes, include a brief technical analysis highlighting 
+        key improvements, potential risks, and recommendations. Format as a quote using 
+        the ">" symbol.
+
+      Keep the response professional and focused on technical value. Use the titles "Overview" and "Changes" and they must be H2.
+
+  summarize_release_notes:
+    required: false
+    description:
+      'The prompt for generating release notes in the same chat as summarize
+      stage'
+    default: |
+      Craft concise release notes for the pull request. 
+      Focus on the purpose and user impact, categorizing changes as "New Feature", "Bug Fix", 
+      "Documentation", "Refactor", "Style", "Test", "Chore", or "Revert". Provide a bullet-point list, 
+      e.g., "- New Feature: Added search functionality to the UI". Limit your response to 50-100 words 
+      and emphasize features visible to the end-user while omitting code-level details.
+  language:
+    required: false
+    description: ISO code for the response language
+    default: en-US
+  bot_icon:
+    required: false
+    description: 'The icon for the bot'
+    default: '🤖'
+  openai_light_model:
+    required: false
+    description: 'The OpenAI model for lightweight tasks such as summarization'
+    default: gpt-3.5-turbo
+  openai_heavy_model:
+    required: false
+    description: 'The OpenAI model for in-depth reviews'
+    default: gpt-4
+runs:
+  using: 'node16'
+  main: 'dist/index.js'

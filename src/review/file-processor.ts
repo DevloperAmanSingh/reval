@@ -60,7 +60,8 @@ export class FileProcessor {
 
     const files = targetBranchFiles.filter(targetBranchFile =>
       incrementalFiles.some(
-        incrementalFile => incrementalFile.filename === targetBranchFile.filename
+        incrementalFile =>
+          incrementalFile.filename === targetBranchFile.filename
       )
     )
 
@@ -102,9 +103,7 @@ export class FileProcessor {
     )
 
     return results.filter(
-      (
-        file
-      ): file is [string, string, string, PatchTuple[]] => file !== null
+      (file): file is [string, string, string, PatchTuple[]] => file !== null
     )
   }
 
@@ -231,32 +230,30 @@ const patchStartEndLine = (
 const parsePatch = (
   patch: string
 ): {newHunk: string; oldHunk: string} | null => {
-  const lines = patch.split('\n')
+  const hunkInfo = patchStartEndLine(patch)
+  if (hunkInfo == null) {
+    return null
+  }
 
   const oldHunkLines: string[] = []
   const newHunkLines: string[] = []
 
-  let skipStart = 0
-  let skipEnd = 0
-  let currentLine = 2
+  let newLine = hunkInfo.newHunk.startLine
 
-  const oldDiff = lines[1]
-  if (oldDiff.startsWith('-')) {
-    const body = oldDiff.substring(1)
-    oldHunkLines.push(body)
-    skipStart++
+  const lines = patch.split('\n').slice(1) // Skip the @@ line
+
+  // Remove the last line if it's empty
+  if (lines[lines.length - 1] === '') {
+    lines.pop()
   }
 
-  const newDiff = lines[2]
-  let newLine = 0
-  if (newDiff.startsWith('+')) {
-    const body = newDiff.substring(1)
-    newHunkLines.push(`${newLine}: ${body}`)
-    newLine++
-    skipEnd++
-  }
+  // Skip annotations for the first 3 and last 3 lines
+  const skipStart = 3
+  const skipEnd = 3
 
-  const removalOnly = newLine === 0
+  let currentLine = 0
+
+  const removalOnly = !lines.some(line => line.startsWith('+'))
 
   for (const line of lines) {
     currentLine++
@@ -266,6 +263,7 @@ const parsePatch = (
       newHunkLines.push(`${newLine}: ${line.substring(1)}`)
       newLine++
     } else {
+      // context line
       oldHunkLines.push(`${line}`)
       if (
         removalOnly ||

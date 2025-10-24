@@ -141,7 +141,7 @@ export class FileProcessor {
       if (patchLines == null) {
         continue
       }
-      const hunks = parsePatch(patch)
+      const hunks = parsePatch(patch, patchLines.newHunk.startLine)
       if (hunks == null) {
         continue
       }
@@ -229,7 +229,8 @@ const patchStartEndLine = (
 }
 
 const parsePatch = (
-  patch: string
+  patch: string,
+  newHunkStartLine: number
 ): {newHunk: string; oldHunk: string} | null => {
   const lines = patch.split('\n')
 
@@ -240,6 +241,9 @@ const parsePatch = (
   let skipEnd = 0
   let currentLine = 2
 
+  let newLine = newHunkStartLine
+  let removalOnly = true
+
   const oldDiff = lines[1]
   if (oldDiff.startsWith('-')) {
     const body = oldDiff.substring(1)
@@ -248,15 +252,13 @@ const parsePatch = (
   }
 
   const newDiff = lines[2]
-  let newLine = 0
   if (newDiff.startsWith('+')) {
     const body = newDiff.substring(1)
     newHunkLines.push(`${newLine}: ${body}`)
     newLine++
     skipEnd++
+    removalOnly = false
   }
-
-  const removalOnly = newLine === 0
 
   for (const line of lines) {
     currentLine++
@@ -265,6 +267,7 @@ const parsePatch = (
     } else if (line.startsWith('+')) {
       newHunkLines.push(`${newLine}: ${line.substring(1)}`)
       newLine++
+      removalOnly = false
     } else {
       oldHunkLines.push(`${line}`)
       if (

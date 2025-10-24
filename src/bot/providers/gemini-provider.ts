@@ -18,10 +18,10 @@ export class GeminiProvider implements AIProvider {
   constructor(config: ProviderConfig, systemMessage: string, language: string) {
     this.config = config
     this.generationConfig = {
-      temperature: config.temperature,
+      temperature: Math.max(config.temperature, 0.1), // Ensure some creativity for finding issues
       maxOutputTokens: this.getMaxOutputTokens(config.model),
-      topP: 0.8,
-      topK: 40
+      topP: 0.9, // Higher for more diverse responses
+      topK: 50 // Higher for more exploration
     }
     this.model = this.createModel(systemMessage, language)
   }

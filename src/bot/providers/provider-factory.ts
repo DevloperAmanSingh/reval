@@ -47,14 +47,14 @@ export class ProviderFactory {
       case 'gemini':
         return process.env.GEMINI_API_KEY || getInput('gemini_api_key') || ''
       case 'auto':
-        // Try Gemini first (cheaper), fallback to OpenAI
-        return (
-          process.env.GEMINI_API_KEY ||
-          process.env.OPENAI_API_KEY ||
-          getInput('gemini_api_key') ||
-          getInput('openai_api_key') ||
-          ''
-        )
+        // Auto-select based on available API keys only
+        if (process.env.GEMINI_API_KEY || getInput('gemini_api_key')) {
+          return process.env.GEMINI_API_KEY || getInput('gemini_api_key') || ''
+        }
+        if (process.env.OPENAI_API_KEY || getInput('openai_api_key')) {
+          return process.env.OPENAI_API_KEY || getInput('openai_api_key') || ''
+        }
+        return ''
       default:
         throw new Error(`Unsupported provider type: ${providerType}`)
     }

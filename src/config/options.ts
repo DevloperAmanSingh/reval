@@ -2,23 +2,29 @@ import {info} from '@actions/core'
 import {minimatch} from 'minimatch'
 
 import {TokenLimits} from './token-limits'
+import type {ProviderType} from '../bot/providers/provider-factory'
 
 export interface OptionsInit {
   systemMessage: string
-  openaiLightModel: string
-  openaiHeavyModel: string
   language: string
   summarize: string
   summarizeReleaseNotes: string
+  aiProvider: string
+  model: string
+  openaiModel: string
+  geminiModel: string
 }
 
 export class Options {
   systemMessage: string
-  openaiLightModel: string
-  openaiHeavyModel: string
   language: string
   summarizePrompt: string
   summarizeReleaseNotesPrompt: string
+
+  aiProvider: string
+  model: string
+  openaiModel: string
+  geminiModel: string
 
   debug = false
   disableReview = false
@@ -39,17 +45,22 @@ export class Options {
 
   constructor(init: OptionsInit) {
     this.systemMessage = init.systemMessage?.trim() ?? ''
-    this.openaiLightModel =
-      init.openaiLightModel?.trim() || 'gpt-3.5-turbo'
-    this.openaiHeavyModel =
-      init.openaiHeavyModel?.trim() || 'gpt-3.5-turbo'
     this.language = init.language?.trim() || 'en-US'
     this.summarizePrompt = init.summarize ?? ''
     this.summarizeReleaseNotesPrompt = init.summarizeReleaseNotes ?? ''
+    this.aiProvider = init.aiProvider?.trim() || 'auto'
+
+    const sharedModel = init.model?.trim()
+    this.openaiModel =
+      sharedModel || init.openaiModel?.trim() || 'gpt-3.5-turbo'
+    this.geminiModel =
+      sharedModel || init.geminiModel?.trim() || 'gemini-2.5-flash'
+
+    this.model = this.getModelForProvider(this.aiProvider as ProviderType)
 
     this.pathFilters = new PathFilter(null)
-    this.lightTokenLimits = new TokenLimits(this.openaiLightModel)
-    this.heavyTokenLimits = new TokenLimits(this.openaiHeavyModel)
+    this.lightTokenLimits = new TokenLimits(this.model)
+    this.heavyTokenLimits = new TokenLimits(this.model)
   }
 
   print(): void {
@@ -61,8 +72,10 @@ export class Options {
     info(`review_comment_lgtm: ${this.reviewCommentLGTM}`)
     info(`path_filters: ${this.pathFilters}`)
     info(`system_message: ${this.systemMessage}`)
-    info(`openai_light_model: ${this.openaiLightModel}`)
-    info(`openai_heavy_model: ${this.openaiHeavyModel}`)
+    info(`ai_provider: ${this.aiProvider}`)
+    info(`selected_model: ${this.model}`)
+    info(`openai_model: ${this.openaiModel}`)
+    info(`gemini_model: ${this.geminiModel}`)
     info(`openai_model_temperature: ${this.openaiModelTemperature}`)
     info(`openai_retries: ${this.openaiRetries}`)
     info(`openai_timeout_ms: ${this.openaiTimeoutMS}`)
@@ -78,6 +91,24 @@ export class Options {
     const ok = this.pathFilters.check(path)
     info(`checking path: ${path} => ${ok}`)
     return ok
+  }
+
+  getModelForProvider(providerType: ProviderType): string {
+    switch (providerType) {
+      case 'gemini':
+        return this.geminiModel || this.openaiModel
+      case 'openai':
+        return this.openaiModel || this.geminiModel
+      case 'auto':
+      default:
+        return this.geminiModel || this.openaiModel
+    }
+  }
+
+  updateSelectedModel(model: string): void {
+    this.model = model
+    this.lightTokenLimits = new TokenLimits(model)
+    this.heavyTokenLimits = new TokenLimits(model)
   }
 }
 

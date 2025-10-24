@@ -1,10 +1,11 @@
 import {getInput, setFailed, warning} from '@actions/core'
 
 import {ChatBot} from '../bot/chat-bot'
-import {OpenAIOptions, Options} from '../config/options'
+import {Options} from '../config/options'
 import {PromptLibrary} from '../prompts/templates'
 import {handleReviewComment} from '../review/comment-responder'
 import {ReviewOrchestrator} from '../review/review-orchestrator'
+import {ProviderType} from '../bot/providers/provider-factory'
 
 const attachProcessGuards = (): void => {
   process
@@ -21,37 +22,73 @@ const attachProcessGuards = (): void => {
 const buildOptions = (): Options =>
   new Options({
     systemMessage: getInput('system_message'),
-    openaiLightModel: getInput('openai_light_model'),
-    openaiHeavyModel: getInput('openai_heavy_model'),
     language: getInput('language'),
     summarize: getInput('summarize'),
-    summarizeReleaseNotes: getInput('summarize_release_notes')
+    summarizeReleaseNotes: getInput('summarize_release_notes'),
+    aiProvider: getInput('ai_provider') || 'auto',
+    model:
+      getInput('model') ||
+      getInput('light_model') ||
+      getInput('heavy_model') ||
+      '',
+    openaiModel:
+      getInput('openai_model') ||
+      getInput('openai_light_model') ||
+      getInput('openai_heavy_model') ||
+      '',
+    geminiModel:
+      getInput('gemini_model') ||
+      getInput('gemini_light_model') ||
+      getInput('gemini_heavy_model') ||
+      ''
   })
+
+const resolveProviderType = (requested: ProviderType): ProviderType => {
+  if (requested !== 'auto') {
+    return requested
+  }
+
+  const hasGemini =
+    Boolean(process.env.GEMINI_API_KEY) || Boolean(getInput('gemini_api_key'))
+  if (hasGemini) {
+    return 'gemini'
+  }
+
+  const hasOpenAI =
+    Boolean(process.env.OPENAI_API_KEY) || Boolean(getInput('openai_api_key'))
+  if (hasOpenAI) {
+    return 'openai'
+  }
+
+  return 'auto'
+}
 
 const createBots = (
   options: Options
 ): {lightBot: ChatBot | null; heavyBot: ChatBot | null} => {
   let lightBot: ChatBot | null = null
   let heavyBot: ChatBot | null = null
+
+  const requestedProvider = (options.aiProvider || 'auto') as ProviderType
+  const providerType = resolveProviderType(requestedProvider)
+  const model = options.getModelForProvider(providerType)
+
+  options.aiProvider = providerType
+  options.updateSelectedModel(model)
+
   try {
-    lightBot = new ChatBot(
-      options,
-      new OpenAIOptions(options.openaiLightModel, options.lightTokenLimits)
-    )
+    lightBot = new ChatBot(options, providerType, model)
   } catch (error: any) {
     warning(
-      `Skipped: failed to create summary bot, please check your openai_api_key: ${error}, backtrace: ${error.stack}`
+      `Skipped: failed to create summary bot, please check your API keys: ${error}, backtrace: ${error.stack}`
     )
   }
 
   try {
-    heavyBot = new ChatBot(
-      options,
-      new OpenAIOptions(options.openaiHeavyModel, options.heavyTokenLimits)
-    )
+    heavyBot = new ChatBot(options, providerType, model)
   } catch (error: any) {
     warning(
-      `Skipped: failed to create review bot, please check your openai_api_key: ${error}, backtrace: ${error.stack}`
+      `Skipped: failed to create review bot, please check your API keys: ${error}, backtrace: ${error.stack}`
     )
   }
 
@@ -69,10 +106,10 @@ export const runAction = async (): Promise<void> => {
   attachProcessGuards()
 
   const options = buildOptions()
-  options.print()
   const prompts = buildPrompts(options)
 
   const {lightBot, heavyBot} = createBots(options)
+  options.print()
   if (!lightBot || !heavyBot) {
     return
   }

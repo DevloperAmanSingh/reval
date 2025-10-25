@@ -56,6 +56,18 @@ inputs:
     required: false
     description: 'The icon for the bot'
     default: '🤖'
+  enable_apply_suggestions:
+    required: false
+    description: 'Allow the bot to post inline GitHub Apply Suggestion fixes'
+    default: 'true'
+  max_suggestion_lines:
+    required: false
+    description: 'Maximum number of lines in a single inline suggestion'
+    default: '50'
+  max_suggestions_per_file:
+    required: false
+    description: 'Maximum number of suggestions the bot will post per file'
+    default: '5'
   openai_light_model:
     required: false
     description: 'The OpenAI model for lightweight tasks such as summarization'

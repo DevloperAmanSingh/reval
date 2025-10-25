@@ -6,6 +6,8 @@ import {Inputs} from '../shared/inputs'
 import {type Options} from '../config/options'
 import {type PromptLibrary} from '../prompts/templates'
 import {getTokenCount} from './tokenizer'
+import {extractSuggestion} from './suggest-parser'
+import {toSuggestionBlock, type Suggestion} from './suggestion'
 
 export interface FileReviewResult {
   reviewCount: number
@@ -131,26 +133,64 @@ ${commentChain}
       return {reviewCount: 0, lgtmCount: 0, failures, skippedDueToSize: false}
     }
 
-    const reviews = parseReview(response, patches, options.debug)
+    const reviews = parseReview(response, patches, filename, options.debug)
     let reviewCount = 0
     let lgtmCount = 0
+    let suggestionsUsed = 0
 
     for (const review of reviews) {
+      const normalizedComment = review.comment.trim()
       if (
+        normalizedComment &&
         !options.reviewCommentLGTM &&
-        (review.comment.includes('LGTM') ||
-          review.comment.includes('looks good to me'))
+        (normalizedComment.includes('LGTM') ||
+          normalizedComment.toLowerCase().includes('looks good to me'))
       ) {
         lgtmCount += 1
         continue
       }
+
+      let message = normalizedComment
+
+      if (options.enableApplySuggestions && review.suggestion) {
+        if (
+          review.suggestion.path === filename &&
+          suggestionsUsed < options.maxSuggestionsPerFile
+        ) {
+          const replacementLines =
+            review.suggestion.replacement.split('\n').length
+          const rangeLines =
+            review.suggestion.endLine - review.suggestion.startLine + 1
+
+          if (
+            replacementLines <= options.maxSuggestionLines &&
+            rangeLines <= options.maxSuggestionLines &&
+            review.suggestion.replacement.trim().length > 0
+          ) {
+            const rationale =
+              message && message.length > 0
+                ? message
+                : 'Suggested change:'
+            message = toSuggestionBlock({
+              ...review.suggestion,
+              rationale
+            })
+            suggestionsUsed += 1
+          }
+        }
+      }
+
+      if (!message || message.trim().length === 0) {
+        continue
+      }
+
       try {
         reviewCount += 1
         await commenter.bufferReviewComment(
           filename,
           review.startLine,
           review.endLine,
-          `${review.comment}`
+          message
         )
       } catch (error: any) {
         failures.push(`${filename} comment failed (${error as string})`)
@@ -173,11 +213,13 @@ interface Review {
   startLine: number
   endLine: number
   comment: string
+  suggestion: Suggestion | null
 }
 
 function parseReview(
   response: string,
   patches: Array<[number, number, string]>,
+  filename: string,
   debug = false
 ): Review[] {
   const reviews: Review[] = []
@@ -194,10 +236,17 @@ function parseReview(
 
   function storeReview(): void {
     if (currentStartLine !== null && currentEndLine !== null) {
+      const extraction = extractSuggestion(currentComment.trim(), {
+        path: filename,
+        startLine: currentStartLine,
+        endLine: currentEndLine
+      })
+
       const review: Review = {
         startLine: currentStartLine,
         endLine: currentEndLine,
-        comment: currentComment
+        comment: extraction.comment,
+        suggestion: extraction.suggestion
       }
 
       let withinPatch = false
@@ -231,19 +280,28 @@ function parseReview(
 ${review.comment}`
           review.startLine = bestPatchStartLine
           review.endLine = bestPatchEndLine
+          review.suggestion = null
         } else {
           review.comment = `> Note: This review was outside of the patch, but no patch was found that overlapped with it. Original lines [${review.startLine}-${review.endLine}]
 
 ${review.comment}`
           review.startLine = patches[0][0]
           review.endLine = patches[0][1]
+          review.suggestion = null
         }
+      }
+
+      if (review.suggestion) {
+        review.suggestion.startLine = review.startLine
+        review.suggestion.endLine = review.endLine
       }
 
       reviews.push(review)
 
       info(
-        `Stored comment for line range ${currentStartLine}-${currentEndLine}: ${currentComment.trim()}`
+        `Stored comment for line range ${currentStartLine}-${currentEndLine}: ${
+          review.comment || '[suggestion]'
+        }`
       )
     }
   }

@@ -40,7 +40,10 @@ const buildOptions = (): Options =>
       getInput('gemini_model') ||
       getInput('gemini_light_model') ||
       getInput('gemini_heavy_model') ||
-      ''
+      '',
+    enableApplySuggestions: getInput('enable_apply_suggestions'),
+    maxSuggestionLines: getInput('max_suggestion_lines'),
+    maxSuggestionsPerFile: getInput('max_suggestions_per_file')
   })
 
 const resolveProviderType = (requested: ProviderType): ProviderType => {

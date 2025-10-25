@@ -13,6 +13,9 @@ export interface OptionsInit {
   model: string
   openaiModel: string
   geminiModel: string
+  enableApplySuggestions?: string
+  maxSuggestionLines?: string
+  maxSuggestionsPerFile?: string
 }
 
 export class Options {
@@ -25,6 +28,9 @@ export class Options {
   model: string
   openaiModel: string
   geminiModel: string
+  enableApplySuggestions: boolean
+  maxSuggestionLines: number
+  maxSuggestionsPerFile: number
 
   debug = false
   disableReview = false
@@ -58,6 +64,21 @@ export class Options {
 
     this.model = this.getModelForProvider(this.aiProvider as ProviderType)
 
+    this.enableApplySuggestions = parseBoolean(
+      init.enableApplySuggestions,
+      true
+    )
+    this.maxSuggestionLines = parseIntWithDefault(
+      init.maxSuggestionLines,
+      50,
+      1
+    )
+    this.maxSuggestionsPerFile = parseIntWithDefault(
+      init.maxSuggestionsPerFile,
+      5,
+      0
+    )
+
     this.pathFilters = new PathFilter(null)
     this.lightTokenLimits = new TokenLimits(this.model)
     this.heavyTokenLimits = new TokenLimits(this.model)
@@ -76,6 +97,9 @@ export class Options {
     info(`selected_model: ${this.model}`)
     info(`openai_model: ${this.openaiModel}`)
     info(`gemini_model: ${this.geminiModel}`)
+    info(`enable_apply_suggestions: ${this.enableApplySuggestions}`)
+    info(`max_suggestion_lines: ${this.maxSuggestionLines}`)
+    info(`max_suggestions_per_file: ${this.maxSuggestionsPerFile}`)
     info(`openai_model_temperature: ${this.openaiModelTemperature}`)
     info(`openai_retries: ${this.openaiRetries}`)
     info(`openai_timeout_ms: ${this.openaiTimeoutMS}`)
@@ -110,6 +134,31 @@ export class Options {
     this.lightTokenLimits = new TokenLimits(model)
     this.heavyTokenLimits = new TokenLimits(model)
   }
+}
+
+function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
+  if (value == null) {
+    return defaultValue
+  }
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'true') return true
+  if (normalized === 'false') return false
+  return defaultValue
+}
+
+function parseIntWithDefault(
+  value: string | undefined,
+  defaultValue: number,
+  minValue: number
+): number {
+  if (value == null || value.trim() === '') {
+    return defaultValue
+  }
+  const parsed = parseInt(value, 10)
+  if (!Number.isFinite(parsed)) {
+    return defaultValue
+  }
+  return Math.max(parsed, minValue)
 }
 
 export class PathFilter {

@@ -76,7 +76,10 @@ jobs:
             You are `@reval`, an experienced senior engineer providing constructive feedback.
             Focus on code quality, security, and best practices.
           ai_provider: gemini
-          gemini_model: gemini-2.5-pro
+          gemini_model: gemini-2.5-flash
+          enable_apply_suggestions: true
+          max_suggestion_lines: 50
+          max_suggestions_per_file: 5
           language: en-US
           bot_icon: '🤖'
           debug: false
